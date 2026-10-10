@@ -14,7 +14,7 @@ function nav(p) {
   const m = p.member;
   return html`<header class="topbar">
   <div class="wrap topbar-inner">
-    <a class="brand" href="/"><img src="/ball.svg" alt="" width="28" height="28"><span>${p.settings.club_name}</span></a>
+    <a class="brand" href="/"><img src="/ball.svg" alt="" width="30" height="30"><span>${p.settings.club_name}<small>Booking af bane</small></span></a>
     <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="nav">Menu</button>
     <nav id="nav" class="nav">
       ${link('/', 'Forside')}
@@ -39,11 +39,12 @@ function page(p, body) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${p.title ? `${p.title} · ` : ''}${s.club_name}</title>
+  <title>${p.title ? `${p.title} · ` : ''}${s.club_name} - Booking af bane</title>
+  <meta name="theme-color" content="#b9532a">
   <link rel="stylesheet" href="/style.css">
   <link rel="icon" href="/ball.svg" type="image/svg+xml">
 </head>
-<body>
+<body${p.bodyClass ? html` class="${p.bodyClass}"` : ''}>
 ${nav(p)}
 <main class="wrap">
 ${p.flash ? html`<div class="flash" role="status">${p.flash}</div>` : ''}
@@ -73,6 +74,6 @@ export async function render(c, name, props = {}, status = 200) {
   };
   const view = VIEWS[name];
   const out = view(p);
-  const doc = out && out.bare ? out.bare : page({ ...p, title: p.title ?? out.title }, out.body ?? out);
+  const doc = out && out.bare ? out.bare : page({ ...p, title: p.title ?? out.title, bodyClass: out.bodyClass }, out.body ?? out);
   return c.html(doc, status);
 }

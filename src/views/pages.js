@@ -5,38 +5,35 @@ const paras = (text) => paragraphs(text).map((p) => html`<p>${p}</p>`);
 export function index(p) {
   const { settings: s, member: m } = p;
   return {
-    title: 'Forside',
-    body: html`<div class="hero">
-  <div class="hero-text">
-    <h1>Velkommen til ${s.club_name}</h1>
-    ${paras(s.front_text)}
-  </div>
+    title: '',
+    bodyClass: 'home',
+    body: html`<section class="court">
+  <div class="court-lines" aria-hidden="true"></div>
   <div class="card login-card">
+    <img class="login-ball" src="/ball.svg" alt="" width="44" height="44">
+    <p class="kicker">${s.club_name}</p>
     ${m
-      ? html`<h2>Hej ${m.name.split(' ')[0]}</h2>
-      <p>Du er logget ind som medlem nr. ${m.member_no}.</p>
-      <p><a class="btn" href="/booking">Book en bane</a></p>
-      <p><a href="/mine-reservationer">Mine reservationer</a> · <a href="/profil">Mine oplysninger</a> · <a href="/skift-pinkode">Skift pinkode</a></p>`
-      : html`<h2>Log ind</h2>
+      ? html`<h1>Hej ${m.name.split(' ')[0]}</h1>
+      <p class="muted">Du er logget ind som medlem nr. ${m.member_no}.</p>
+      <a class="btn block" href="/booking">Book en bane</a>
+      <p class="login-links"><a href="/mine-reservationer">Mine reservationer</a> · <a href="/profil">Mine oplysninger</a></p>`
+      : html`<h1>Booking af bane</h1>
       <form method="post" action="/login" class="stack">
         ${csrfField(p)}
-        <label>Medlemsnummer <input name="member_no" inputmode="numeric" autocomplete="username" required></label>
+        <label>Medlemsnummer <input name="member_no" inputmode="numeric" autocomplete="username" required autofocus></label>
         <label>Pinkode <input name="pin" type="password" inputmode="numeric" autocomplete="current-password" required></label>
-        <button class="btn">Log ind</button>
+        <button class="btn block">Log ind</button>
       </form>
-      <p class="small"><a href="/glemt-pinkode">Glemt pinkode?</a></p>`}
+      <p class="login-links"><a href="/glemt-pinkode">Glemt pinkode?</a> · <a href="/vejledning">Sådan booker du</a></p>`}
   </div>
-</div>
-<div class="cols two">
-  <section class="card">
+</section>
+<div class="cols two home-info">
+  ${paragraphs(s.front_text).length ? html`<section class="card">${paras(s.front_text)}</section>` : ''}
+  ${m ? '' : html`<section class="card">
     <h3>Mangler du login?</h3>
     ${paras(s.missing_login_text)}
     ${s.club_email ? html`<p><a href="mailto:${s.club_email}">${s.club_email}</a>${s.club_phone ? html` · ${s.club_phone}` : ''}</p>` : ''}
-  </section>
-  <section class="card">
-    <h3>Vejret</h3>
-    <p>Se vejrudsigten for de kommende dage hos <a href="https://www.dmi.dk/" rel="noopener" target="_blank">DMI</a>, før du booker.</p>
-  </section>
+  </section>`}
 </div>`,
   };
 }
