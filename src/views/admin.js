@@ -12,6 +12,9 @@ const subnav = (p) => html`<nav class="subnav">
 const postButton = (p, action, label, cls = 'link', confirm = '') =>
   html`<form method="post" action="${action}" ${confirm ? html`data-confirm="${confirm}"` : ''}>${csrfField(p)}<button class="${cls}">${label}</button></form>`;
 
+const adminButton = (p, m) =>
+  html`<form method="post" action="/admin/medlemmer/${m.id}/admin" ${m.is_admin ? html`data-confirm="Fjern administratorrettigheder fra ${m.name}?"` : ''}>${csrfField(p)}<input type="hidden" name="admin" value="${m.is_admin ? '0' : '1'}"><button class="link">${m.is_admin ? 'Fjern admin' : 'Gør til admin'}</button></form>`;
+
 export function admin_members(p) {
   const { active, inactive, member } = p;
   return {
@@ -38,6 +41,7 @@ export function admin_members(p) {
       <td>${m.max_bookings >= 999 ? '∞' : m.max_bookings}</td>
       <td class="actions-cell">
         <a href="/admin/medlemmer/${m.id}">Ret</a>
+        ${m.id !== member.id ? adminButton(p, m) : ''}
         ${m.id !== member.id ? postButton(p, `/admin/medlemmer/${m.id}/deaktiver`, 'Deaktiver', 'link danger', `Deaktiver ${m.name}? Medlemmet kan ikke længere logge ind, og kommende reservationer slettes.`) : ''}
       </td>
     </tr>`)}

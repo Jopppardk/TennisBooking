@@ -80,6 +80,9 @@ npm run import-members -- medlemmer.csv
 npx wrangler d1 execute DB --remote --file import-members.sql
 ```
 
+Or, without a computer set up for it: GitHub **Actions > Importér medlemmer > Run workflow**, and paste the CSV
+(with a `pin` column). The list is only a workflow input, so it never ends up in the public repository.
+
 Members keep their member number and current PIN. Rows without a PIN get a new one, listed in `nye-pinkoder.csv`.
 Delete both generated files afterwards, since they contain personal data. Old bookings are not imported.
 

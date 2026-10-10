@@ -1,0 +1,35 @@
+name: Importér medlemmer
+
+# Run by hand (Actions > Importér medlemmer > Run workflow) and paste the members as CSV with a header row, e.g.
+#   medlnr;navn;mob;email;pin
+# Columns are the ones scripts/import-members.js understands. The list is a workflow input, so names, phone
+# numbers and PINs never end up in the repository or the log. Existing member numbers are updated.
+on:
+  workflow_dispatch:
+    inputs:
+      csv:
+        description: Medlemmer som CSV (første linje er kolonnenavne)
+        required: true
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Reads the input from the event file, so the list is not printed in the log.
+      - name: Write SQL
+        run: |
+          node -e "const fs=require('fs');fs.writeFileSync('medlemmer.csv', JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH,'utf8')).inputs.csv.replace(/\\\\n/g,'\n'))"
+          node scripts/import-members.js medlemmer.csv | grep -v '^Kør'
+          test ! -f nye-pinkoder.csv || { echo "Some rows have no PIN; add a pin column so new PINs aren't lost."; exit 1; }
+      - name: Write members to the database
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 execute DB --remote --file import-members.sql

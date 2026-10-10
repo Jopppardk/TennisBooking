@@ -196,6 +196,24 @@ test('admin creates a member, who can log in', async () => {
   assert.equal(dup.status, 400);
 });
 
+test('admin can promote and demote members from the list', async () => {
+  const admin = client();
+  await admin.login(1, '1234');
+  const list = await admin.get('/admin/medlemmer');
+  assert.match(list.text, /Gør til admin/);
+  await admin.post(`/admin/medlemmer/${id(11)}/admin`, { admin: '1' });
+  assert.equal(db.prepare('SELECT is_admin FROM members WHERE member_no = 11').get().is_admin, 1);
+  await admin.post(`/admin/medlemmer/${id(11)}/admin`, { admin: '0' });
+  assert.equal(db.prepare('SELECT is_admin FROM members WHERE member_no = 11').get().is_admin, 0);
+  // Your own rights can't be removed this way.
+  await admin.post(`/admin/medlemmer/${id(1)}/admin`, { admin: '0' });
+  assert.equal(db.prepare('SELECT is_admin FROM members WHERE member_no = 1').get().is_admin, 1);
+  // Non-admins can't use it.
+  const anna = client();
+  await anna.login(10, '1111');
+  assert.equal((await anna.post(`/admin/medlemmer/${id(10)}/admin`, { admin: '1' })).status, 403);
+});
+
 test('the site is only for court booking', async () => {
   for (const path of ['/bliv-medlem', '/om-klubben', '/kontakt', '/turnering', '/sponsorer']) {
     assert.equal((await client().get(path)).status, 404, path);

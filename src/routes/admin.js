@@ -161,6 +161,21 @@ r.post('/medlemmer/:id/deaktiver', async (c) => {
   return c.redirect('/admin/medlemmer');
 });
 
+// Give or take away administrator rights straight from the members list.
+r.post('/medlemmer/:id/admin', async (c) => {
+  const db = c.get('db');
+  const me = c.get('member');
+  const m = await getMember(db, c.req.param('id'));
+  const makeAdmin = c.get('form').admin === '1' ? 1 : 0;
+  if (m && m.id !== me.id && m.active) {
+    await run(db, "UPDATE members SET is_admin = ?, max_bookings = CASE WHEN ? = 1 THEN 999 ELSE max_bookings END, updated_at = datetime('now'), updated_by = ? WHERE id = ?",
+      makeAdmin, makeAdmin, me.name, m.id);
+    await logEvent(c, `${makeAdmin ? 'Gjort til administrator' : 'Ikke længere administrator'}: ${m.member_no} - ${m.name}`);
+    flash(c, makeAdmin ? `${m.name} er nu administrator.` : `${m.name} er ikke længere administrator.`);
+  }
+  return c.redirect('/admin/medlemmer');
+});
+
 r.post('/medlemmer/:id/aktiver', async (c) => {
   const db = c.get('db');
   const m = await getMember(db, c.req.param('id'));
