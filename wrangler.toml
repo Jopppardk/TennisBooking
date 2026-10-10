@@ -11,7 +11,7 @@ directory = "./public"
 [[d1_databases]]
 binding = "DB"
 database_name = "tennis-booking"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "e2fbfbc4-b108-45b3-9e90-80c02851084a"
 migrations_dir = "migrations"
 
 [observability]
