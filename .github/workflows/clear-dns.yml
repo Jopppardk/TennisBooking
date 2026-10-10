@@ -29,8 +29,12 @@ jobs:
           fi
           for name in "$ZONE" "www.$ZONE"; do
             for type in A AAAA CNAME; do
-              api "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records?type=$type&name=$name" \
-                | jq -r '.result[] | "\(.id) \(.type) \(.name) \(.content)"' | while read -r id t n content; do
+              list=$(api "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records?type=$type&name=$name")
+              if [ "$(echo "$list" | jq -r .success)" != true ]; then
+                echo "Could not read DNS records. The API token needs DNS:Edit for $ZONE: $(echo "$list" | jq -c .errors)"
+                exit 1
+              fi
+              echo "$list" | jq -r '.result[] | "\(.id) \(.type) \(.name) \(.content)"' | while read -r id t n content; do
                   res=$(api -X DELETE "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records/$id")
                   if [ "$(echo "$res" | jq -r .success)" = true ]; then echo "Deleted $t $n -> $content"; else echo "Could not delete $t $n: $(echo "$res" | jq -c .errors)"; exit 1; fi
                 done
