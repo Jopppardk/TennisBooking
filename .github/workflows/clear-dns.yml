@@ -1,0 +1,38 @@
+name: Ryd gamle DNS-poster
+
+# Run by hand once: deletes the A, AAAA and CNAME records on ambabooking.dk and www.ambabooking.dk, so the Worker
+# can take over the domain as a custom domain. Needs Zone:Read and DNS:Edit on the CLOUDFLARE_API_TOKEN.
+on:
+  workflow_dispatch:
+    inputs:
+      zone:
+        description: Domæne
+        default: ambabooking.dk
+        required: true
+
+jobs:
+  clear:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old records
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ZONE: ${{ inputs.zone }}
+        run: |
+          api() { curl -sS -H "Authorization: Bearer $CF_TOKEN" -H "Content-Type: application/json" "$@"; }
+          zone=$(api "https://api.cloudflare.com/client/v4/zones?name=$ZONE")
+          zone_id=$(echo "$zone" | jq -r '.result[0].id // empty')
+          if [ -z "$zone_id" ]; then
+            echo "Could not read the zone $ZONE. The API token needs Zone:Read and DNS:Edit for it."
+            echo "$zone" | jq -c '.errors'
+            exit 1
+          fi
+          for name in "$ZONE" "www.$ZONE"; do
+            for type in A AAAA CNAME; do
+              api "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records?type=$type&name=$name" \
+                | jq -r '.result[] | "\(.id) \(.type) \(.name) \(.content)"' | while read -r id t n content; do
+                  res=$(api -X DELETE "https://api.cloudflare.com/client/v4/zones/$zone_id/dns_records/$id")
+                  if [ "$(echo "$res" | jq -r .success)" = true ]; then echo "Deleted $t $n -> $content"; else echo "Could not delete $t $n: $(echo "$res" | jq -c .errors)"; exit 1; fi
+                done
+            done
+          done
