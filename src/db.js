@@ -3,7 +3,7 @@ import { localNow } from './dates.js';
 
 // Keys that can be edited under Administration > Indstillinger (defaults are inserted by the migration).
 export const SETTING_KEYS = [
-  'club_name', 'club_email', 'club_phone', 'sms_sender', 'booking_days_ahead', 'front_text', 'missing_login_text',
+  'club_name', 'club_email', 'club_phone', 'booking_days_ahead', 'front_text', 'missing_login_text',
 ];
 
 export const all = async (db, sql, ...args) => (await db.prepare(sql).bind(...args).all()).results;

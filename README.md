@@ -49,16 +49,23 @@ the repository has two secrets (GitHub: **Settings > Secrets and variables > Act
 
 Without the secrets the deploy step is skipped, and the tests still run.
 
-## E-mail and SMS
+## E-mail
 
-Set these as Worker secrets (`npx wrangler secret put NAME`):
+The site sends two kinds of mail: a new PIN when a member uses "Glemt pinkode" (automatic), and a welcome mail
+with member number and PIN when an admin creates a member and ticks the box. There is no SMS.
 
-| Secret | What for |
-|---|---|
-| `RESEND_API_KEY`, `MAIL_FROM` | E-mail through [resend.com](https://resend.com) (free tier). `MAIL_FROM` must use a domain you verified there. |
-| `CPSMS_USERNAME`, `CPSMS_APIKEY` | SMS through [cpsms.dk](https://www.cpsms.dk), as the old site used. |
+Easiest setup, no own domain needed, with [Brevo](https://www.brevo.com) (free, 300 mails a day):
 
-Without them, messages are only written to the Worker log (Cloudflare dashboard > the Worker > Logs).
+1. Create a free Brevo account.
+2. **Senders, Domains & Dedicated IPs > Senders > Add a sender**: the club's e-mail address. Click the link Brevo mails you.
+3. **SMTP & API > API Keys > Generate a new API key**, and copy it.
+4. Cloudflare dashboard > **Workers & Pages > tennis-booking > Settings > Variables and Secrets > Add**:
+   type *Secret*, name `BREVO_API_KEY`, value the key. Deploy.
+5. On the site: **Administration > Indstillinger**, set *Kontakt-e-mail* to the sender address from step 2.
+
+The settings page says whether e-mail is set up. With your own domain you can use [Resend](https://resend.com)
+instead (`RESEND_API_KEY`, plus `MAIL_FROM` with an address on the verified domain). Without a key, nothing is sent,
+and a forgotten PIN is not changed.
 
 ## Develop locally
 
@@ -96,7 +103,7 @@ Delete both generated files afterwards, since they contain personal data. Old bo
 | Edit partner (creator/admin), delete booking (creator/partner/admin) | Same rules. |
 | Max bookings per member (1, 2, 3, 5, 10, 999) | Same, and enforced (it was switched off in the old code). Bookings for today don't count. |
 | Edit own details, change PIN | Same. |
-| Forgotten PIN by member no., e-mail or mobile | Sends a new PIN by e-mail/SMS. |
+| Forgotten PIN by member no., e-mail or mobile | By member no. or e-mail; a new PIN is mailed automatically. SMS is left out. |
 | Admin: members list, create, edit, deactivate, activate, delete, print list | Same, plus search and CSV export. |
 | Activity log, booking guide | Same. Front-page texts are edited in Administration. |
 | Sign-up, fees, Om klubben, Kontakt, Turnering, Sponsorer | Left out: this is only the booking site. |

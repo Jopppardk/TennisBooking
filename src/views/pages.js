@@ -62,16 +62,15 @@ export function lost(p) {
     body: html`<div class="card narrow">
   <h1>Glemt pinkode</h1>
   ${p.sent
-    ? html`<p>Hvis vi fandt dig i medlemslisten, har vi sendt en ny pinkode til din e-mail og/eller mobil.</p>
+    ? html`<p>Hvis vi fandt dig i medlemslisten, har vi sendt en ny pinkode til din e-mail. Kig også i spam-mappen.</p>
     <p>Får du ikke noget, så kontakt klubben${s.club_email ? html` på <a href="mailto:${s.club_email}">${s.club_email}</a>` : ''}.</p>
     <p><a href="/">Tilbage til login</a></p>`
-    : html`<p>Udfyld ét af felterne, så sender vi en ny pinkode til den e-mail og det mobilnummer, vi har på dig.</p>
+    : html`<p>Skriv dit medlemsnummer eller din e-mail, så sender vi en ny pinkode til den e-mail, vi har på dig.</p>
     ${errorBox(p.error)}
     <form method="post" class="stack">
       ${csrfField(p)}
       <label>Medlemsnummer <input name="member_no" inputmode="numeric"></label>
       <label>E-mail <input name="email" type="email"></label>
-      <label>Mobilnummer <input name="mobile" inputmode="tel"></label>
       <button class="btn">Send ny pinkode</button>
     </form>`}
 </div>`,
@@ -119,7 +118,7 @@ export function profile(p) {
       <label>Telefon <input name="phone" value="${v(x.phone)}" inputmode="tel"></label>
       <label>Mobil <input name="mobile" value="${v(x.mobile)}" inputmode="tel"></label>
     </div>
-    <p class="small muted">Din e-mail og dit mobilnummer bruges til at sende dig en ny pinkode, hvis du glemmer den.</p>
+    <p class="small muted">Din e-mail bruges til at sende dig en ny pinkode, hvis du glemmer den.</p>
     <button class="btn">Gem</button>
   </form>
 </div>`,

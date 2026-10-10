@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { all, first, run, logEvent, SETTING_KEYS } from '../db.js';
 import { requireAdmin, flash } from '../session.js';
 import { hashPin, randomPin, isValidPin } from '../security.js';
-import { sendEmail, sendSms } from '../notify.js';
+import { sendEmail, mailConfigured } from '../notify.js';
 import { isValidIsoDate, today } from '../dates.js';
 import { render } from '../views/layout.js';
 
@@ -36,24 +36,19 @@ async function validateMember(db, x, id) {
   return null;
 }
 
-async function sendLogin(c, m, pin, { email, sms }, isNew) {
+// Sends member number and PIN by e-mail when the admin ticked the box. Returns a sentence for the flash message.
+async function sendLogin(c, m, pin, wanted, isNew) {
+  if (!wanted) return '';
+  if (!m.email) return ' Der blev ikke sendt en mail, fordi medlemmet ikke har en e-mailadresse.';
   const s = c.get('settings');
-  const sent = [];
-  const intro = isNew ? `Du er oprettet som bruger i ${s.club_name}s bookingsystem.` : `Du har fået en ny pinkode til ${s.club_name}s bookingsystem.`;
-  if (email && m.email) {
-    await sendEmail(c.env, {
-      to: m.email,
-      from: `${s.club_name} <${s.club_email}>`,
-      subject: `${s.club_name} - Dit login`,
-      text: `Kære ${m.name}\n\n${intro}\n\nDit medlemsnummer: ${m.member_no}\nDin pinkode: ${pin}\n\nNår du er logget ind, kan du rette dine oplysninger og skifte pinkode.\n\nMed venlig hilsen\n${s.club_name}`,
-    });
-    sent.push('e-mail');
-  }
-  if (sms && m.mobile) {
-    await sendSms(c.env, { to: m.mobile, from: s.sms_sender, message: `${intro} Medlemsnr.: ${m.member_no} Pinkode: ${pin}` });
-    sent.push('SMS');
-  }
-  return sent;
+  const intro = isNew ? `Du er oprettet som bruger i ${s.club_name}s banebooking.` : `Du har fået en ny pinkode til ${s.club_name}s banebooking.`;
+  const ok = await sendEmail(c.env, {
+    to: m.email,
+    from: `${s.club_name} <${s.club_email}>`,
+    subject: `${s.club_name} - Dit login`,
+    text: `Kære ${m.name}\n\n${intro}\n\nDit medlemsnummer: ${m.member_no}\nDin pinkode: ${pin}\n\nLog ind på ${new URL(c.req.url).origin}\nNår du er logget ind, kan du rette dine oplysninger og skifte pinkode.\n\nMed venlig hilsen\n${s.club_name}`,
+  });
+  return ok ? ` Login er sendt til ${m.email}.` : ' Mailen kunne ikke sendes. Giv medlemmet pinkoden på anden vis.';
 }
 
 const r = new Hono();
@@ -82,12 +77,12 @@ r.get('/medlemmer.csv', async (c) => {
   });
 });
 
-const formProps = (extra) => ({ limits: BOOKING_LIMITS, error: null, ...extra });
+const formProps = (c, extra) => ({ limits: BOOKING_LIMITS, error: null, mailReady: mailConfigured(c.env), ...extra });
 
 r.get('/medlemmer/ny', async (c) => {
   const { n } = await first(c.get('db'), 'SELECT COALESCE(MAX(member_no), 0) + 1 AS n FROM members');
   const values = { member_no: n, pin: randomPin(4), max_bookings: 1, is_admin: 0 };
-  return view(c, 'admin_member_form', formProps({ values, isNew: true }));
+  return view(c, 'admin_member_form', formProps(c, { values, isNew: true }));
 });
 
 r.post('/medlemmer/ny', async (c) => {
@@ -95,7 +90,7 @@ r.post('/medlemmer/ny', async (c) => {
   const f = c.get('form');
   const x = readMember(f);
   const error = await validateMember(db, x);
-  if (error) return view(c, 'admin_member_form', formProps({ values: x, error, isNew: true }), 400);
+  if (error) return view(c, 'admin_member_form', formProps(c, { values: x, error, isNew: true }), 400);
   await run(
     db,
     `INSERT INTO members (member_no, pin_hash, name, address, postcode, city, email, phone, mobile, birthdate, is_admin, max_bookings, updated_by)
@@ -104,15 +99,15 @@ r.post('/medlemmer/ny', async (c) => {
     x.is_admin, x.max_bookings, c.get('member').name
   );
   await logEvent(c, `Medlem oprettet: ${x.member_no} - ${x.name}`);
-  const sent = await sendLogin(c, x, x.pin, { email: f.send_email === '1', sms: f.send_sms === '1' }, true);
-  flash(c, `${x.name} er oprettet som medlem nr. ${x.member_no}.` + (sent.length ? ` Login er sendt pr. ${sent.join(' og ')}.` : ''));
+  const sent = await sendLogin(c, x, x.pin, f.send_email === '1', true);
+  flash(c, `${x.name} er oprettet som medlem nr. ${x.member_no}.${sent}`);
   return c.redirect('/admin/medlemmer');
 });
 
 r.get('/medlemmer/:id', async (c) => {
   const m = await getMember(c.get('db'), c.req.param('id'));
   if (!m) return c.redirect('/admin/medlemmer');
-  return view(c, 'admin_member_form', formProps({ values: { ...m, pin: '' }, isNew: false }));
+  return view(c, 'admin_member_form', formProps(c, { values: { ...m, pin: '' }, isNew: false }));
 });
 
 r.post('/medlemmer/:id', async (c) => {
@@ -124,23 +119,23 @@ r.post('/medlemmer/:id', async (c) => {
   const x = readMember(f);
   let error = await validateMember(db, x, m.id);
   if (!error && m.id === me.id && !x.is_admin) error = 'Du kan ikke fjerne dine egne administratorrettigheder.';
-  if (error) return view(c, 'admin_member_form', formProps({ values: { ...m, ...x }, error, isNew: false }), 400);
+  if (error) return view(c, 'admin_member_form', formProps(c, { values: { ...m, ...x }, error, isNew: false }), 400);
   await run(
     db,
     `UPDATE members SET member_no=?, name=?, address=?, postcode=?, city=?, email=?, phone=?, mobile=?, birthdate=?,
      is_admin=?, max_bookings=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
     x.member_no, x.name, x.address, x.postcode, x.city, x.email, x.phone, x.mobile, x.birthdate, x.is_admin, x.max_bookings, me.name, m.id
   );
-  let sent = [];
+  let sent = '';
   if (x.pin) {
     await db.batch([
       db.prepare('UPDATE members SET pin_hash = ? WHERE id = ?').bind(await hashPin(x.pin), m.id),
       db.prepare('DELETE FROM sessions WHERE member_id = ? AND token <> ?').bind(m.id, c.get('sessionToken') ?? ''),
     ]);
-    sent = await sendLogin(c, x, x.pin, { email: f.send_email === '1', sms: f.send_sms === '1' }, false);
+    sent = await sendLogin(c, x, x.pin, f.send_email === '1', false);
   }
   await logEvent(c, `Medlem rettet: ${x.member_no} - ${x.name}${x.pin ? ' (ny pinkode)' : ''}`);
-  flash(c, `${x.name} er opdateret.` + (sent.length ? ` Ny pinkode er sendt pr. ${sent.join(' og ')}.` : ''));
+  flash(c, `${x.name} er opdateret.${sent}`);
   return c.redirect('/admin/medlemmer');
 });
 
@@ -262,7 +257,7 @@ r.post('/baner', async (c) => {
 });
 
 // Settings and texts
-r.get('/indstillinger', (c) => view(c, 'admin_settings'));
+r.get('/indstillinger', (c) => view(c, 'admin_settings', { mailReady: mailConfigured(c.env) }));
 
 r.post('/indstillinger', async (c) => {
   const db = c.get('db');

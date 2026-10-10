@@ -12,7 +12,7 @@ let env, db;
 before(async () => {
   const d1 = createD1();
   db = d1.raw;
-  env = { DB: d1, QUIET: '1' };
+  env = { DB: d1, QUIET: '1', MAIL_TEST: '1' };
   resetAdminCheck();
   const add = db.prepare('INSERT INTO members (member_no, pin_hash, name, email, mobile, max_bookings) VALUES (?, ?, ?, ?, ?, ?)');
   add.run(10, await hashPin('1111'), 'Anna Andersen', 'anna@example.dk', '20202020', 1);
@@ -194,6 +194,26 @@ test('admin creates a member, who can log in', async () => {
   await admin.get('/admin/medlemmer/ny');
   const dup = await admin.post('/admin/medlemmer/ny', { member_no: '20', name: 'X', pin: '1234', max_bookings: '1' });
   assert.equal(dup.status, 400);
+});
+
+test('welcome mail only when ticked; forgotten PIN is only changed when the mail goes out', async () => {
+  const admin = client();
+  await admin.login(1, '1234');
+  await admin.get('/admin/medlemmer/ny');
+  const before = outbox.length;
+  await admin.post('/admin/medlemmer/ny', { member_no: '21', name: 'Eva Ek', email: 'eva@example.dk', is_admin: '0', max_bookings: '1', pin: '2468' });
+  assert.equal(outbox.length, before);
+
+  // No mail service: the member keeps the old PIN.
+  delete env.MAIL_TEST;
+  try {
+    const v = client();
+    await v.get('/glemt-pinkode');
+    await v.post('/glemt-pinkode', { member_no: '21' });
+    assert.equal((await client().login(21, '2468')).location, '/booking');
+  } finally {
+    env.MAIL_TEST = '1';
+  }
 });
 
 test('admin can promote and demote members from the list', async () => {

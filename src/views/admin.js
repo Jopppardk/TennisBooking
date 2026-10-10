@@ -147,8 +147,8 @@ export function admin_member_form(p) {
         <label class="w-30">Pinkode <input name="pin" value="${v(x.pin)}" inputmode="numeric" pattern="${raw('\\d{4,8}')}"${isNew ? raw(' required') : ''}></label>
         ${isNew ? '' : html`<button type="button" class="btn ghost" data-random-pin>Lav tilfældig</button>`}
       </div>
-      <label class="check"><input type="checkbox" name="send_email" value="1"${chk(isNew)}> Send login pr. e-mail</label>
-      <label class="check"><input type="checkbox" name="send_sms" value="1"> Send login pr. SMS</label>
+      <label class="check"><input type="checkbox" name="send_email" value="1"> ${isNew ? 'Send en velkomstmail med medlemsnummer og pinkode' : 'Send den nye pinkode pr. mail'}</label>
+      ${p.mailReady ? '' : html`<p class="small muted">E-mail er ikke sat op endnu, så der bliver ikke sendt noget.</p>`}
     </fieldset>
     <div class="row">
       <button class="btn">${isNew ? 'Opret' : 'Gem'}</button>
@@ -202,9 +202,9 @@ export function admin_settings(p) {
     <section class="card stack">
       <h2>Siden</h2>
       <label>Navn (vises øverst på siden) <input name="club_name" value="${s.club_name}" required></label>
-      <label>Kontakt-e-mail (afsender på e-mails) <input name="club_email" type="email" value="${s.club_email}"></label>
+      <label>Kontakt-e-mail (afsender på mails) <input name="club_email" type="email" value="${s.club_email}"></label>
+      <p class="small ${p.mailReady ? 'muted' : 'error'}">${p.mailReady ? 'E-mail er sat op.' : 'E-mail er ikke sat op endnu. Mails om glemt pinkode og nye medlemmer bliver ikke sendt.'}</p>
       <label>Kontakttelefon <input name="club_phone" value="${s.club_phone}"></label>
-      <label>SMS-afsender (højst 11 tegn) <input name="sms_sender" maxlength="11" value="${s.sms_sender}"></label>
       <label>Hvor mange dage frem må medlemmer booke? (0 = ingen grænse) <input name="booking_days_ahead" inputmode="numeric" value="${s.booking_days_ahead}"></label>
     </section>
     <section class="card stack">

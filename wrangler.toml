@@ -19,7 +19,6 @@ enabled = true
 
 # Secrets (set with `npx wrangler secret put NAME`, never committed):
 #   ADMIN_PIN        optional: creates an administrator (member ADMIN_MEMBER_NO, default 1) when none exists
-#   RESEND_API_KEY   e-mail via resend.com
-#   MAIL_FROM        sender, e.g. "Tennisklubben <booking@dinklub.dk>" (a domain verified in Resend)
-#   CPSMS_USERNAME   SMS via cpsms.dk
-#   CPSMS_APIKEY
+#   BREVO_API_KEY    e-mail via brevo.com (sender = the contact e-mail in Administration, verified in Brevo)
+#   RESEND_API_KEY   or e-mail via resend.com (needs your own domain)
+#   MAIL_FROM        optional sender, e.g. "Tvis Tennis <booking@dinklub.dk>"; overrides the contact e-mail
