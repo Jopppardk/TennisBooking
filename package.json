@@ -1,0 +1,23 @@
+{
+  "name": "tennis-booking",
+  "version": "2.0.0",
+  "description": "Banebooking for tennisklubber på Cloudflare Workers + D1.",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+    "deploy": "wrangler d1 migrations apply DB --remote && wrangler deploy",
+    "test": "node --test",
+    "import-members": "node scripts/import-members.js",
+    "seed-demo": "node scripts/seed-demo.js"
+  },
+  "dependencies": {
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "better-sqlite3": "^13.0.3",
+    "wrangler": "^4.149.0"
+  }
+}

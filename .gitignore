@@ -1,0 +1,7 @@
+node_modules/
+.wrangler/
+.dev.vars
+demo.sql
+import-members.sql
+nye-pinkoder.csv
+*.csv

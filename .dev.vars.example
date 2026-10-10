@@ -1,0 +1,6 @@
+# Copy to .dev.vars for local development with `npm run dev`. Never commit .dev.vars.
+ADMIN_PIN=1234
+RESEND_API_KEY=
+MAIL_FROM="Tennisklubben <booking@example.dk>"
+CPSMS_USERNAME=
+CPSMS_APIKEY=
