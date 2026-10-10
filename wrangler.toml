@@ -1,6 +1,14 @@
 name = "tennis-booking"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
+workers_dev = true
+preview_urls = false
+
+# The site answers on ambabooking.dk and www.ambabooking.dk (the zone is on the same Cloudflare account).
+routes = [
+  { pattern = "ambabooking.dk", custom_domain = true },
+  { pattern = "www.ambabooking.dk", custom_domain = true },
+]
 
 # CSS, JS and icon from public/ are served directly by Cloudflare.
 [assets]
