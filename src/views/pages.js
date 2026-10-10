@@ -27,6 +27,16 @@ export function index(p) {
       <p class="login-links"><a href="/glemt-pinkode">Glemt pinkode?</a> · <a href="/vejledning">Sådan booker du</a></p>`}
   </div>
 </section>
+<div class="install" hidden>
+  <img src="/icon-192.png" alt="" width="44" height="44">
+  <div>
+    <strong>Læg banebookingen på din hjemmeskærm</strong>
+    <p class="install-ios" hidden>Tryk på <span class="share" aria-label="Del">Del</span> nederst i Safari og vælg <strong>Føj til hjemmeskærm</strong>.</p>
+    <p class="install-other" hidden>Så åbner den som en app med tennisbolden som ikon.</p>
+  </div>
+  <button type="button" class="btn small install-btn" hidden>Tilføj</button>
+  <button type="button" class="install-close" aria-label="Luk">✕</button>
+</div>
 <div class="cols two home-info">
   ${paragraphs(s.front_text).length ? html`<section class="card">${paras(s.front_text)}</section>` : ''}
   ${m ? '' : html`<section class="card">

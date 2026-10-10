@@ -223,3 +223,13 @@ button.link { background: none; border: 0; padding: 0; color: var(--brand); font
   .court-lines::after { top: 50%; bottom: auto; left: -8px; right: -8px; width: auto; height: 4px; transform: translateY(-50%);
     background: repeating-linear-gradient(90deg, rgba(255,255,255,.95) 0 6px, rgba(255,255,255,.35) 6px 10px); }
 }
+
+/* "Add to home screen" hint */
+.install { display: flex; gap: .75rem; align-items: center; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); padding: .75rem .9rem; margin: 1rem 0 0; position: relative; }
+.install[hidden], .install [hidden] { display: none; }
+.install img { border-radius: 10px; flex: none; }
+.install div { flex: 1; min-width: 0; font-size: .92rem; }
+.install p { margin: .15rem 0 0; color: var(--muted); }
+.install .share { display: inline-block; padding: 0 .35rem; border: 1px solid var(--line); border-radius: 5px; font-size: .8rem; }
+.install-close { background: none; border: 0; color: var(--muted); font-size: 1rem; cursor: pointer; padding: .25rem; align-self: start; }
+@media (max-width: 700px) { .home .install { margin: 1rem 16px 0; } }

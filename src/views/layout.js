@@ -40,9 +40,15 @@ function page(p, body) {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>${p.title ? `${p.title} · ` : ''}${s.club_name} - Booking af bane</title>
-  <meta name="theme-color" content="#b9532a">
+  <meta name="theme-color" content="#1f4a37">
   <link rel="stylesheet" href="/style.css">
-  <link rel="icon" href="/ball.svg" type="image/svg+xml">
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.webmanifest">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Tvis Tennis">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body${p.bodyClass ? html` class="${p.bodyClass}"` : ''}>
 ${nav(p)}
