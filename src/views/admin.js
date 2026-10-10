@@ -1,12 +1,12 @@
 import { html, raw, csrfField, sel, chk, v, errorBox, dates } from './helpers.js';
 
 const TABS = [
-  ['/admin/medlemmer', 'Medlemmer'], ['/admin/indmeldelser', 'Indmeldelser'], ['/admin/baner', 'Baner og tider'],
+  ['/admin/medlemmer', 'Medlemmer'], ['/admin/baner', 'Baner og tider'],
   ['/admin/indstillinger', 'Indstillinger og tekster'], ['/admin/log', 'Log'],
 ];
 
 const subnav = (p) => html`<nav class="subnav">
-  ${TABS.map(([href, label]) => html`<a href="${href}" ${p.path.startsWith(href) ? html`aria-current="page"` : ''}>${label}${href === '/admin/indmeldelser' && p.pendingApplications ? html` <span class="badge">${p.pendingApplications}</span>` : ''}</a>`)}
+  ${TABS.map(([href, label]) => html`<a href="${href}" ${p.path.startsWith(href) ? html`aria-current="page"` : ''}>${label}</a>`)}
 </nav>`;
 
 const postButton = (p, action, label, cls = 'link', confirm = '') =>
@@ -28,14 +28,13 @@ export function admin_members(p) {
 <input class="filter" type="search" placeholder="Søg på navn, nummer, e-mail..." data-filter="#active-table">
 <div class="card">
 <table class="table" id="active-table">
-  <thead><tr><th>Nr.</th><th>Navn</th><th>Telefon</th><th>E-mail</th><th>Type</th><th>Maks.</th><th></th></tr></thead>
+  <thead><tr><th>Nr.</th><th>Navn</th><th>Telefon</th><th>E-mail</th><th>Maks.</th><th></th></tr></thead>
   <tbody>
   ${active.map((m) => html`<tr>
       <td>${m.member_no}</td>
       <td><a href="/admin/medlemmer/${m.id}">${m.name}</a>${m.is_admin ? html` <span class="badge">admin</span>` : ''}</td>
       <td>${m.mobile || m.phone}</td>
       <td>${m.email ? html`<a href="mailto:${m.email}">${m.email}</a>` : ''}</td>
-      <td>${m.member_type}</td>
       <td>${m.max_bookings >= 999 ? '∞' : m.max_bookings}</td>
       <td class="actions-cell">
         <a href="/admin/medlemmer/${m.id}">Ret</a>
@@ -83,13 +82,13 @@ export function admin_members_print(p) {
   <h1>Medlemsliste · ${s.club_name}</h1>
   <p class="muted">Udskrevet ${dates.formatDate(dates.today())} · ${list.length} aktive medlemmer</p>
   <table class="table print">
-    <thead><tr><th>Nr.</th><th>Navn</th><th>Adresse</th><th>Telefon</th><th>E-mail</th><th>Fødselsdato</th><th>Type</th></tr></thead>
+    <thead><tr><th>Nr.</th><th>Navn</th><th>Adresse</th><th>Telefon</th><th>E-mail</th><th>Fødselsdato</th></tr></thead>
     <tbody>
     ${list.map((m) => html`<tr>
         <td>${m.member_no}</td><td>${m.name}</td>
         <td>${[m.address, [m.postcode, m.city].filter(Boolean).join(' ')].filter(Boolean).join(', ')}</td>
         <td>${[m.phone, m.mobile].filter(Boolean).join(' / ')}</td><td>${m.email}</td>
-        <td>${dates.formatDate(m.birthdate)}</td><td>${m.member_type}</td>
+        <td>${dates.formatDate(m.birthdate)}</td>
       </tr>`)}
     </tbody>
   </table>
@@ -100,7 +99,7 @@ export function admin_members_print(p) {
 }
 
 export function admin_member_form(p) {
-  const { values: x, isNew, types, limits } = p;
+  const { values: x, isNew, limits } = p;
   return {
     title: isNew ? 'Opret medlem' : 'Ret medlem',
     body: html`${subnav(p)}
@@ -110,7 +109,6 @@ export function admin_member_form(p) {
   ${errorBox(p.error)}
   <form method="post" class="stack">
     ${csrfField(p)}
-    <input type="hidden" name="application_id" value="${v(p.applicationId)}">
     <div class="row">
       <label class="w-30">Medlemsnr. <input name="member_no" value="${v(x.member_no)}" inputmode="numeric" required></label>
       <label>Navn <input name="name" value="${v(x.name)}" required></label>
@@ -125,16 +123,7 @@ export function admin_member_form(p) {
       <label>Telefon <input name="phone" value="${v(x.phone)}"></label>
       <label>Mobil <input name="mobile" value="${v(x.mobile)}"></label>
     </div>
-    <div class="row">
-      <label>Fødselsdato <input name="birthdate" type="date" value="${v(x.birthdate)}"></label>
-      <label>Medlemstype
-        <select name="member_type">
-          <option value=""></option>
-          ${types.map((t) => html`<option${sel(x.member_type === t.name)}>${t.name}</option>`)}
-          ${x.member_type && !types.some((t) => t.name === x.member_type) ? html`<option selected>${x.member_type}</option>` : ''}
-        </select>
-      </label>
-    </div>
+    <label>Fødselsdato <input name="birthdate" type="date" value="${v(x.birthdate)}"></label>
     <div class="row">
       <label>Rettigheder
         <select name="is_admin">
@@ -162,46 +151,6 @@ export function admin_member_form(p) {
       <a class="btn ghost" href="/admin/medlemmer">Annuller</a>
     </div>
   </form>
-</div>`,
-  };
-}
-
-export function admin_applications(p) {
-  const { pending, done } = p;
-  return {
-    title: 'Indmeldelser',
-    body: html`${subnav(p)}
-<h1>Indmeldelser der venter</h1>
-<p class="muted">Opret medlemmet, når kontingentet er betalt. Felterne bliver udfyldt fra indmeldelsen.</p>
-<div class="card">
-${pending.length
-  ? html`<table class="table">
-  <thead><tr><th>Modtaget</th><th>Navn</th><th>Type</th><th>Kontakt</th><th></th></tr></thead>
-  <tbody>
-  ${pending.map((a) => html`<tr>
-      <td>${dates.formatDate(a.created_at)}</td>
-      <td>${a.name}<br><span class="muted small">${a.address}, ${a.postcode} ${a.city}</span></td>
-      <td>${a.member_type}</td>
-      <td><a href="mailto:${a.email}">${a.email}</a><br><span class="small">${[a.phone, a.mobile].filter(Boolean).join(' / ')}</span></td>
-      <td class="actions-cell">
-        <a class="btn small" href="/admin/medlemmer/ny?indmeldelse=${a.id}">Opret medlem</a>
-        ${postButton(p, `/admin/indmeldelser/${a.id}/afslut`, 'Afvis', 'link danger', `Afslut indmeldelsen fra ${a.name} uden at oprette et medlem?`)}
-      </td>
-    </tr>`)}
-  </tbody>
-</table>`
-  : html`<p class="muted">Ingen ventende indmeldelser.</p>`}
-</div>
-<h2>Afsluttede</h2>
-<div class="card">
-${done.length
-  ? html`<table class="table">
-  <thead><tr><th>Modtaget</th><th>Navn</th><th>Type</th><th>Resultat</th></tr></thead>
-  <tbody>
-  ${done.map((a) => html`<tr><td>${dates.formatDate(a.created_at)}</td><td>${a.name}</td><td>${a.member_type}</td><td>${a.member_no ? `Oprettet som nr. ${a.member_no}` : 'Afvist'}</td></tr>`)}
-  </tbody>
-</table>`
-  : html`<p class="muted">Ingen endnu.</p>`}
 </div>`,
   };
 }
@@ -235,14 +184,10 @@ ${errorBox(p.error)}
   };
 }
 
-const TEXT_LABELS = {
-  front_text: 'Forside: velkomst', missing_login_text: 'Forside: mangler login', join_text: 'Bliv medlem: forklaring',
-  payment_text: 'E-mail til nye medlemmer: sådan betaler du', about_text: 'Om klubben', contact_text: 'Kontakt',
-  tournament_text: 'Turnering', sponsors_text: 'Sponsorer',
-};
+const TEXT_LABELS = { front_text: 'Forside: velkomst', missing_login_text: 'Forside: mangler du login?' };
 
 export function admin_settings(p) {
-  const { settings: s, types } = p;
+  const s = p.settings;
   return {
     title: 'Indstillinger',
     body: html`${subnav(p)}
@@ -251,41 +196,19 @@ export function admin_settings(p) {
   ${csrfField(p)}
   <div class="cols two">
     <section class="card stack">
-      <h2>Klubben</h2>
-      <label>Klubbens navn <input name="club_name" value="${s.club_name}" required></label>
-      <label>E-mail (modtager indmeldelser) <input name="club_email" type="email" value="${s.club_email}"></label>
-      <label>Telefon <input name="club_phone" value="${s.club_phone}"></label>
-      <label>Adresse <input name="club_address" value="${s.club_address}"></label>
+      <h2>Siden</h2>
+      <label>Navn (vises øverst på siden) <input name="club_name" value="${s.club_name}" required></label>
+      <label>Kontakt-e-mail (afsender på e-mails) <input name="club_email" type="email" value="${s.club_email}"></label>
+      <label>Kontakttelefon <input name="club_phone" value="${s.club_phone}"></label>
       <label>SMS-afsender (højst 11 tegn) <input name="sms_sender" maxlength="11" value="${s.sms_sender}"></label>
       <label>Hvor mange dage frem må medlemmer booke? (0 = ingen grænse) <input name="booking_days_ahead" inputmode="numeric" value="${s.booking_days_ahead}"></label>
     </section>
     <section class="card stack">
-      <h2>Medlemstyper og kontingent</h2>
-      <table class="table compact">
-        <thead><tr><th>Navn</th><th>Beskrivelse</th><th>Kr.</th><th>Orden</th><th>Slet</th></tr></thead>
-        <tbody>
-        ${types.map((t) => html`<tr>
-            <td><input name="type_name_${t.id}" value="${t.name}"></td>
-            <td><input name="type_desc_${t.id}" value="${t.description}"></td>
-            <td><input name="type_price_${t.id}" value="${t.price}" inputmode="numeric" size="5"></td>
-            <td><input name="type_sort_${t.id}" value="${t.sort}" inputmode="numeric" size="2"></td>
-            <td><input type="checkbox" name="type_delete_${t.id}" value="1" aria-label="Slet ${t.name}"></td>
-          </tr>`)}
-          <tr>
-            <td><input name="type_name_new" placeholder="Ny type"></td>
-            <td><input name="type_desc_new"></td>
-            <td><input name="type_price_new" inputmode="numeric" size="5"></td>
-            <td></td><td></td>
-          </tr>
-        </tbody>
-      </table>
+      <h2>Tekster på forsiden</h2>
+      <p class="muted small">En tom linje starter et nyt afsnit.</p>
+      ${Object.entries(TEXT_LABELS).map(([k, label]) => html`<label>${label} <textarea name="${k}" rows="6">${s[k]}</textarea></label>`)}
     </section>
   </div>
-  <section class="card stack">
-    <h2>Tekster på siden</h2>
-    <p class="muted small">En tom linje starter et nyt afsnit.</p>
-    ${Object.entries(TEXT_LABELS).map(([k, label]) => html`<label>${label} <textarea name="${k}" rows="5">${s[k]}</textarea></label>`)}
-  </section>
   <button class="btn">Gem indstillinger</button>
 </form>`,
   };

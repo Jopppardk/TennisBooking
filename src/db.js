@@ -3,8 +3,7 @@ import { localNow } from './dates.js';
 
 // Keys that can be edited under Administration > Indstillinger (defaults are inserted by the migration).
 export const SETTING_KEYS = [
-  'club_name', 'club_email', 'club_phone', 'club_address', 'sms_sender', 'booking_days_ahead',
-  'front_text', 'missing_login_text', 'join_text', 'payment_text', 'about_text', 'contact_text', 'tournament_text', 'sponsors_text',
+  'club_name', 'club_email', 'club_phone', 'sms_sender', 'booking_days_ahead', 'front_text', 'missing_login_text',
 ];
 
 export const all = async (db, sql, ...args) => (await db.prepare(sql).bind(...args).all()).results;
@@ -21,17 +20,18 @@ export async function logEvent(c, event, member = c.get('member')) {
   await run(c.get('db'), 'INSERT INTO log (at, user, event, ip) VALUES (?, ?, ?, ?)', localNow(), user, event, c.get('ip'));
 }
 
-// A database without any administrator gets one (member no. 1, if that number is free) so someone can log in.
-// PIN: ADMIN_PIN or 1234.
+// A database without any administrator gets one when the ADMIN_PIN secret is set: member ADMIN_MEMBER_NO (default 1),
+// if that number is free. Without ADMIN_PIN nobody is created; use the "Opret administrator" workflow instead.
 let adminChecked = false;
 export async function ensureAdmin(db, env) {
   if (adminChecked) return;
   const n = await first(db, 'SELECT COUNT(*) AS n FROM members WHERE is_admin = 1');
-  if (n.n === 0) {
+  if (n.n === 0 && env.ADMIN_PIN) {
     await run(
       db,
-      `INSERT OR IGNORE INTO members (member_no, pin_hash, name, is_admin, max_bookings) VALUES (1, ?, 'Administrator', 1, 999)`,
-      await hashPin(env.ADMIN_PIN || '1234')
+      `INSERT OR IGNORE INTO members (member_no, pin_hash, name, is_admin, max_bookings) VALUES (?, ?, 'Administrator', 1, 999)`,
+      parseInt(env.ADMIN_MEMBER_NO, 10) || 1,
+      await hashPin(env.ADMIN_PIN)
     );
   }
   adminChecked = true;

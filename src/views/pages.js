@@ -1,4 +1,4 @@
-import { html, paragraphs, csrfField, sel, v, errorBox } from './helpers.js';
+import { html, paragraphs, csrfField, v, errorBox } from './helpers.js';
 
 const paras = (text) => paragraphs(text).map((p) => html`<p>${p}</p>`);
 
@@ -27,15 +27,11 @@ export function index(p) {
       <p class="small"><a href="/glemt-pinkode">Glemt pinkode?</a></p>`}
   </div>
 </div>
-<div class="cols">
+<div class="cols two">
   <section class="card">
     <h3>Mangler du login?</h3>
     ${paras(s.missing_login_text)}
     ${s.club_email ? html`<p><a href="mailto:${s.club_email}">${s.club_email}</a>${s.club_phone ? html` · ${s.club_phone}` : ''}</p>` : ''}
-  </section>
-  <section class="card">
-    <h3>Bliv medlem</h3>
-    <p>Er du ikke allerede medlem, kan du melde dig ind <a href="/bliv-medlem">her</a>. Du får derefter et medlemsnummer og en pinkode, så du kan booke baner.</p>
   </section>
   <section class="card">
     <h3>Vejret</h3>
@@ -71,68 +67,6 @@ export function lost(p) {
       <label>Mobilnummer <input name="mobile" inputmode="tel"></label>
       <button class="btn">Send ny pinkode</button>
     </form>`}
-</div>`,
-  };
-}
-
-export function join(p) {
-  const { settings: s, types, values: x = {} } = p;
-  return {
-    title: 'Bliv medlem',
-    body: html`<h1>Bliv medlem</h1>
-<div class="cols two">
-  <section class="card">
-    <h2>Kontingent</h2>
-    <table class="table">
-      ${types.map((t) => html`<tr><td><strong>${t.name}</strong>${t.description ? html` <span class="muted">(${t.description})</span>` : ''}</td><td class="num">${t.price} kr.</td></tr>`)}
-    </table>
-    ${paras(s.join_text)}
-  </section>
-  <section class="card">
-    ${p.done
-      ? html`<h2>Tak for din indmeldelse</h2>
-      <p>Vi har sendt dig en e-mail om, hvordan du betaler kontingent. Når betalingen er modtaget, får du dit medlemsnummer og din pinkode.</p>
-      <p><a href="/">Til forsiden</a></p>`
-      : html`<h2>Indmeldelse</h2>
-      ${errorBox(p.error)}
-      <form method="post" class="stack">
-        ${csrfField(p)}
-        <label>Navn* <input name="name" value="${v(x.name)}" required autocomplete="name"></label>
-        <label>Adresse* <input name="address" value="${v(x.address)}" required autocomplete="street-address"></label>
-        <div class="row">
-          <label class="w-30">Postnr.* <input name="postcode" value="${v(x.postcode)}" required inputmode="numeric" autocomplete="postal-code"></label>
-          <label>By* <input name="city" value="${v(x.city)}" required autocomplete="address-level2"></label>
-        </div>
-        <label>E-mail* <input name="email" type="email" value="${v(x.email)}" required autocomplete="email"></label>
-        <div class="row">
-          <label>Telefon <input name="phone" value="${v(x.phone)}" inputmode="tel"></label>
-          <label>Mobil <input name="mobile" value="${v(x.mobile)}" inputmode="tel" autocomplete="tel"></label>
-        </div>
-        <label>Fødselsdato <input name="birthdate" type="date" value="${v(x.birthdate)}"></label>
-        <label>Medlemstype*
-          <select name="member_type" required>
-            ${types.map((t) => html`<option${sel(x.member_type === t.name)}>${t.name}</option>`)}
-          </select>
-        </label>
-        <button class="btn">Send indmeldelse</button>
-      </form>`}
-  </section>
-</div>`,
-  };
-}
-
-export function page(p) {
-  const s = p.settings;
-  const ps = paragraphs(s[p.textKey]);
-  return {
-    title: p.title,
-    body: html`<div class="card narrow">
-  <h1>${p.title}</h1>
-  ${ps.length ? ps.map((x) => html`<p class="pre">${x}</p>`) : html`<p class="muted">Der er ikke skrevet noget her endnu.</p>`}
-  ${p.textKey === 'contact_text'
-    ? html`<p class="pre"><strong>${s.club_name}</strong>${s.club_address ? html`\n${s.club_address}` : ''}${s.club_phone ? html`\nTlf. ${s.club_phone}` : ''}</p>
-    ${s.club_email ? html`<p>E-mail: <a href="mailto:${s.club_email}">${s.club_email}</a></p>` : ''}`
-    : ''}
 </div>`,
   };
 }

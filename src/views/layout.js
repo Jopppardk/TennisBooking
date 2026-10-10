@@ -19,9 +19,7 @@ function nav(p) {
     <nav id="nav" class="nav">
       ${link('/', 'Forside')}
       ${m ? [link('/booking', 'Book bane'), link('/mine-reservationer', 'Mine reservationer')] : ''}
-      ${link('/bliv-medlem', 'Bliv medlem')}
-      ${link('/om-klubben', 'Om klubben')}
-      ${link('/kontakt', 'Kontakt')}
+      ${link('/vejledning', 'Vejledning')}
       ${m?.is_admin ? link('/admin', 'Administration') : ''}
     </nav>
     ${m
@@ -54,10 +52,8 @@ ${body}
 <footer class="footer">
   <div class="wrap">
     <strong>${s.club_name}</strong>
-    ${s.club_address ? html` · ${s.club_address}` : ''}
     ${s.club_phone ? html` · Tlf. ${s.club_phone}` : ''}
     ${s.club_email ? html` · <a href="mailto:${s.club_email}">${s.club_email}</a>` : ''}
-    <nav class="footer-links"><a href="/om-klubben">Om klubben</a> <a href="/turnering">Turnering</a> <a href="/sponsorer">Sponsorer</a> <a href="/kontakt">Kontakt</a> <a href="/vejledning">Vejledning</a></nav>
   </div>
 </footer>
 <script src="/app.js" defer></script>

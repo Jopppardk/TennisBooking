@@ -25,7 +25,7 @@ before(async () => {
 const id = (no) => db.prepare('SELECT id FROM members WHERE member_no = ?').get(no).id;
 
 // Minimal browser: keeps cookies, reads the CSRF token from the last page.
-function client() {
+function client(d1 = null) {
   const jar = {};
   let csrf = '';
   async function req(method, path, form) {
@@ -35,7 +35,7 @@ function client() {
       headers['content-type'] = 'application/x-www-form-urlencoded';
       body = new URLSearchParams({ _csrf: csrf, ...form }).toString();
     }
-    const res = await app.request(path, { method, headers, body }, env);
+    const res = await app.request(path, { method, headers, body }, d1 ? { DB: d1, QUIET: '1' } : env);
     for (const c of res.headers.getSetCookie()) {
       const [pair] = c.split(';');
       const [k, v] = pair.split('=');
@@ -177,28 +177,14 @@ test('non-admins cannot reach administration', async () => {
   assert.equal((await c.get('/admin/medlemmer')).status, 403);
 });
 
-test('membership application becomes a member, who can log in', async () => {
-  const visitor = client();
-  await visitor.get('/bliv-medlem');
-  const sent = await visitor.post('/bliv-medlem', {
-    name: 'Dina Dahl', address: 'Vej 1', postcode: '7500', city: 'Holstebro', email: 'dina@example.dk', member_type: 'Senior',
-  });
-  assert.match(sent.text, /Tak for din indmeldelse/);
-  const appRow = db.prepare("SELECT * FROM applications WHERE name = 'Dina Dahl'").get();
-  assert.ok(appRow);
-
+test('admin creates a member, who can log in', async () => {
   const admin = client();
   await admin.login(1, '1234');
-  const list = await admin.get('/admin/indmeldelser');
-  assert.match(list.text, /Dina Dahl/);
-  const form = await admin.get(`/admin/medlemmer/ny?indmeldelse=${appRow.id}`);
-  assert.match(form.text, /value="dina@example.dk"/);
+  await admin.get('/admin/medlemmer/ny');
   const created = await admin.post('/admin/medlemmer/ny', {
-    application_id: String(appRow.id), member_no: '20', name: 'Dina Dahl', email: 'dina@example.dk', member_type: 'Senior',
-    is_admin: '0', max_bookings: '1', pin: '4321', send_email: '1',
+    member_no: '20', name: 'Dina Dahl', email: 'dina@example.dk', is_admin: '0', max_bookings: '1', pin: '4321', send_email: '1',
   });
   assert.equal(created.location, '/admin/medlemmer');
-  assert.equal(db.prepare('SELECT processed FROM applications WHERE id = ?').get(appRow.id).processed, 1);
   assert.ok(outbox.some((m) => m.to === 'dina@example.dk' && /4321/.test(m.text)));
 
   const dina = client();
@@ -208,6 +194,18 @@ test('membership application becomes a member, who can log in', async () => {
   await admin.get('/admin/medlemmer/ny');
   const dup = await admin.post('/admin/medlemmer/ny', { member_no: '20', name: 'X', pin: '1234', max_bookings: '1' });
   assert.equal(dup.status, 400);
+});
+
+test('the site is only for court booking', async () => {
+  for (const path of ['/bliv-medlem', '/om-klubben', '/kontakt', '/turnering', '/sponsorer']) {
+    assert.equal((await client().get(path)).status, 404, path);
+  }
+  const admin = client();
+  await admin.login(1, '1234');
+  assert.equal((await admin.get('/admin/indmeldelser')).status, 404);
+  const front = await client().get('/');
+  assert.doesNotMatch(front.text, /Bliv medlem|Om klubben/);
+  assert.match(front.text, /Log ind/);
 });
 
 test('deactivated members are logged out and lose upcoming bookings', async () => {
@@ -283,12 +281,40 @@ test('member-entered text is escaped in pages', async () => {
   assert.match(page.text, /&lt;script&gt;alert/);
 });
 
-test('an empty database gets a default administrator', async () => {
-  const fresh = { DB: createD1(), QUIET: '1', ADMIN_PIN: '9090' };
+test('an empty database gets an administrator only when ADMIN_PIN is set', async () => {
+  const none = { DB: createD1(), QUIET: '1' };
+  resetAdminCheck();
+  assert.equal((await app.request('/', {}, none)).status, 200);
+  assert.equal(none.DB.raw.prepare('SELECT COUNT(*) AS n FROM members').get().n, 0);
+
+  const fresh = { DB: createD1(), QUIET: '1', ADMIN_PIN: '9090', ADMIN_MEMBER_NO: '42' };
   resetAdminCheck();
   const res = await app.request('/', {}, fresh);
   assert.equal(res.status, 200);
   const row = fresh.DB.raw.prepare('SELECT member_no, is_admin FROM members').get();
-  assert.deepEqual(row, { member_no: 1, is_admin: 1 });
+  assert.deepEqual(row, { member_no: 42, is_admin: 1 });
+  resetAdminCheck();
+});
+
+test('create-admin script makes an administrator and removes the unused default one', async () => {
+  const { execFileSync } = await import('node:child_process');
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'admin-'));
+  const script = path.join(import.meta.dirname, '..', 'scripts', 'create-admin.js');
+  const env = { ...process.env, GITHUB_EVENT_PATH: '' };
+  execFileSync(process.execPath, [script, '42', '2069', 'René'], { cwd: dir, env, stdio: 'pipe' });
+  const sql = fs.readFileSync(path.join(dir, 'create-admin.sql'), 'utf8');
+  assert.doesNotMatch(sql, /2069/);
+
+  const d1 = createD1();
+  d1.raw.prepare("INSERT INTO members (member_no, pin_hash, name, is_admin, max_bookings) VALUES (1, ?, 'Administrator', 1, 999)").run(await hashPin('1234'));
+  d1.raw.exec(sql);
+  assert.deepEqual(d1.raw.prepare('SELECT member_no, name, is_admin FROM members').all(), [{ member_no: 42, name: 'René', is_admin: 1 }]);
+  resetAdminCheck();
+  const c = client(d1);
+  assert.equal((await c.login(42, '2069')).location, '/booking');
+  assert.equal((await c.get('/admin/medlemmer')).status, 200);
   resetAdminCheck();
 });

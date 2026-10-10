@@ -6,7 +6,7 @@ import { sendEmail, sendSms } from '../notify.js';
 import { isValidIsoDate, today } from '../dates.js';
 import { render } from '../views/layout.js';
 
-const MEMBER_FIELDS = ['name', 'address', 'postcode', 'city', 'email', 'phone', 'mobile', 'birthdate', 'member_type'];
+const MEMBER_FIELDS = ['name', 'address', 'postcode', 'city', 'email', 'phone', 'mobile', 'birthdate'];
 const BOOKING_LIMITS = [1, 2, 3, 5, 10, 999];
 
 function readMember(f) {
@@ -23,7 +23,6 @@ const csvCell = (x) => {
   return /[",;\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-const memberTypes = (db) => all(db, 'SELECT * FROM member_types ORDER BY sort, id');
 const getMember = (db, id) => first(db, 'SELECT * FROM members WHERE id = ?', Number(id) || 0);
 
 async function validateMember(db, x, id) {
@@ -59,11 +58,7 @@ async function sendLogin(c, m, pin, { email, sms }, isNew) {
 
 const r = new Hono();
 r.use('*', requireAdmin);
-r.use('*', async (c, next) => {
-  c.set('pending', (await first(c.get('db'), 'SELECT COUNT(*) AS n FROM applications WHERE processed = 0')).n);
-  await next();
-});
-const view = (c, name, props, status) => render(c, name, { pendingApplications: c.get('pending'), ...props }, status);
+const view = (c, name, props, status) => render(c, name, props, status);
 
 r.get('/', (c) => c.redirect('/admin/medlemmer'));
 
@@ -78,7 +73,7 @@ r.get('/medlemmer/print', async (c) =>
 );
 
 r.get('/medlemmer.csv', async (c) => {
-  const cols = ['member_no', 'name', 'address', 'postcode', 'city', 'email', 'phone', 'mobile', 'birthdate', 'member_type', 'is_admin', 'max_bookings', 'active', 'created_at'];
+  const cols = ['member_no', 'name', 'address', 'postcode', 'city', 'email', 'phone', 'mobile', 'birthdate', 'is_admin', 'max_bookings', 'active', 'created_at'];
   const rows = await all(c.get('db'), `SELECT ${cols.join(', ')} FROM members ORDER BY member_no`);
   const csv = [cols.join(';'), ...rows.map((row) => cols.map((k) => csvCell(row[k])).join(';'))].join('\r\n');
   return c.body('﻿' + csv, 200, {
@@ -87,15 +82,12 @@ r.get('/medlemmer.csv', async (c) => {
   });
 });
 
-const formProps = async (c, extra) => ({ types: await memberTypes(c.get('db')), limits: BOOKING_LIMITS, error: null, applicationId: '', ...extra });
+const formProps = (extra) => ({ limits: BOOKING_LIMITS, error: null, ...extra });
 
 r.get('/medlemmer/ny', async (c) => {
-  const db = c.get('db');
-  const appId = c.req.query('indmeldelse');
-  const app = appId ? await first(db, 'SELECT * FROM applications WHERE id = ?', Number(appId) || 0) : null;
-  const { n } = await first(db, 'SELECT COALESCE(MAX(member_no), 0) + 1 AS n FROM members');
-  const values = { member_no: n, pin: randomPin(4), max_bookings: 1, is_admin: 0, ...(app ? Object.fromEntries(MEMBER_FIELDS.map((k) => [k, app[k]])) : {}) };
-  return view(c, 'admin_member_form', await formProps(c, { values, isNew: true, applicationId: app?.id ?? '' }));
+  const { n } = await first(c.get('db'), 'SELECT COALESCE(MAX(member_no), 0) + 1 AS n FROM members');
+  const values = { member_no: n, pin: randomPin(4), max_bookings: 1, is_admin: 0 };
+  return view(c, 'admin_member_form', formProps({ values, isNew: true }));
 });
 
 r.post('/medlemmer/ny', async (c) => {
@@ -103,16 +95,14 @@ r.post('/medlemmer/ny', async (c) => {
   const f = c.get('form');
   const x = readMember(f);
   const error = await validateMember(db, x);
-  const applicationId = Number(f.application_id) || null;
-  if (error) return view(c, 'admin_member_form', await formProps(c, { values: x, error, isNew: true, applicationId: applicationId ?? '' }), 400);
-  const res = await run(
+  if (error) return view(c, 'admin_member_form', formProps({ values: x, error, isNew: true }), 400);
+  await run(
     db,
-    `INSERT INTO members (member_no, pin_hash, name, address, postcode, city, email, phone, mobile, birthdate, member_type, is_admin, max_bookings, updated_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    x.member_no, await hashPin(x.pin), x.name, x.address, x.postcode, x.city, x.email, x.phone, x.mobile, x.birthdate, x.member_type,
+    `INSERT INTO members (member_no, pin_hash, name, address, postcode, city, email, phone, mobile, birthdate, is_admin, max_bookings, updated_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    x.member_no, await hashPin(x.pin), x.name, x.address, x.postcode, x.city, x.email, x.phone, x.mobile, x.birthdate,
     x.is_admin, x.max_bookings, c.get('member').name
   );
-  if (applicationId) await run(db, 'UPDATE applications SET processed = 1, member_id = ? WHERE id = ?', res.meta.last_row_id, applicationId);
   await logEvent(c, `Medlem oprettet: ${x.member_no} - ${x.name}`);
   const sent = await sendLogin(c, x, x.pin, { email: f.send_email === '1', sms: f.send_sms === '1' }, true);
   flash(c, `${x.name} er oprettet som medlem nr. ${x.member_no}.` + (sent.length ? ` Login er sendt pr. ${sent.join(' og ')}.` : ''));
@@ -122,7 +112,7 @@ r.post('/medlemmer/ny', async (c) => {
 r.get('/medlemmer/:id', async (c) => {
   const m = await getMember(c.get('db'), c.req.param('id'));
   if (!m) return c.redirect('/admin/medlemmer');
-  return view(c, 'admin_member_form', await formProps(c, { values: { ...m, pin: '' }, isNew: false }));
+  return view(c, 'admin_member_form', formProps({ values: { ...m, pin: '' }, isNew: false }));
 });
 
 r.post('/medlemmer/:id', async (c) => {
@@ -134,12 +124,12 @@ r.post('/medlemmer/:id', async (c) => {
   const x = readMember(f);
   let error = await validateMember(db, x, m.id);
   if (!error && m.id === me.id && !x.is_admin) error = 'Du kan ikke fjerne dine egne administratorrettigheder.';
-  if (error) return view(c, 'admin_member_form', await formProps(c, { values: { ...m, ...x }, error, isNew: false }), 400);
+  if (error) return view(c, 'admin_member_form', formProps({ values: { ...m, ...x }, error, isNew: false }), 400);
   await run(
     db,
-    `UPDATE members SET member_no=?, name=?, address=?, postcode=?, city=?, email=?, phone=?, mobile=?, birthdate=?, member_type=?,
+    `UPDATE members SET member_no=?, name=?, address=?, postcode=?, city=?, email=?, phone=?, mobile=?, birthdate=?,
      is_admin=?, max_bookings=?, updated_at=datetime('now'), updated_by=? WHERE id=?`,
-    x.member_no, x.name, x.address, x.postcode, x.city, x.email, x.phone, x.mobile, x.birthdate, x.member_type, x.is_admin, x.max_bookings, me.name, m.id
+    x.member_no, x.name, x.address, x.postcode, x.city, x.email, x.phone, x.mobile, x.birthdate, x.is_admin, x.max_bookings, me.name, m.id
   );
   let sent = [];
   if (x.pin) {
@@ -191,26 +181,6 @@ r.post('/medlemmer/:id/slet', async (c) => {
     flash(c, `${m.name} er slettet permanent.`);
   }
   return c.redirect('/admin/medlemmer');
-});
-
-// Membership applications
-r.get('/indmeldelser', async (c) => {
-  const list = await all(
-    c.get('db'),
-    'SELECT a.*, m.member_no FROM applications a LEFT JOIN members m ON m.id = a.member_id ORDER BY a.processed, a.created_at DESC'
-  );
-  return view(c, 'admin_applications', { pending: list.filter((a) => !a.processed), done: list.filter((a) => a.processed) });
-});
-
-r.post('/indmeldelser/:id/afslut', async (c) => {
-  const db = c.get('db');
-  const a = await first(db, 'SELECT * FROM applications WHERE id = ?', Number(c.req.param('id')) || 0);
-  if (a) {
-    await run(db, 'UPDATE applications SET processed = 1 WHERE id = ?', a.id);
-    await logEvent(c, `Indmeldelse afsluttet uden oprettelse: ${a.name}`);
-    flash(c, `Indmeldelsen fra ${a.name} er flyttet til afsluttede.`);
-  }
-  return c.redirect('/admin/indmeldelser');
 });
 
 // Courts and time slots
@@ -276,8 +246,8 @@ r.post('/baner', async (c) => {
   }
 });
 
-// Club settings, texts and membership types
-r.get('/indstillinger', async (c) => view(c, 'admin_settings', { types: await memberTypes(c.get('db')) }));
+// Settings and texts
+r.get('/indstillinger', (c) => view(c, 'admin_settings'));
 
 r.post('/indstillinger', async (c) => {
   const db = c.get('db');
@@ -290,28 +260,6 @@ r.post('/indstillinger', async (c) => {
           .bind(k, String(f[k]).replace(/\r\n/g, '\n').trim())
       );
     }
-  }
-  for (const t of await memberTypes(db)) {
-    if (f[`type_delete_${t.id}`] === '1') {
-      stmts.push(db.prepare('DELETE FROM member_types WHERE id = ?').bind(t.id));
-      continue;
-    }
-    stmts.push(
-      db.prepare('UPDATE member_types SET name = ?, description = ?, price = ?, sort = ? WHERE id = ?').bind(
-        String(f[`type_name_${t.id}`] || t.name).trim(),
-        String(f[`type_desc_${t.id}`] || '').trim(),
-        parseInt(f[`type_price_${t.id}`], 10) || 0,
-        parseInt(f[`type_sort_${t.id}`], 10) || 0,
-        t.id
-      )
-    );
-  }
-  const newType = String(f.type_name_new || '').trim();
-  if (newType) {
-    stmts.push(
-      db.prepare('INSERT OR IGNORE INTO member_types (name, description, price, sort) VALUES (?, ?, ?, 99)')
-        .bind(newType, String(f.type_desc_new || '').trim(), parseInt(f.type_price_new, 10) || 0)
-    );
   }
   await db.batch(stmts);
   await logEvent(c, 'Indstillinger opdateret');

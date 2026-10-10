@@ -10,7 +10,7 @@ const pin = await hashPin('1111');
 const sql = [];
 names.forEach((n, i) => {
   sql.push(
-    `INSERT OR IGNORE INTO members (member_no, pin_hash, name, email, mobile, member_type, max_bookings) VALUES (${10 + i}, '${pin}', '${n}', '${n.split(' ')[0].toLowerCase()}@example.dk', '2000000${i}', 'Senior', 2);`
+    `INSERT OR IGNORE INTO members (member_no, pin_hash, name, email, mobile, max_bookings) VALUES (${10 + i}, '${pin}', '${n}', '${n.split(' ')[0].toLowerCase()}@example.dk', '2000000${i}', 2);`
   );
 });
 const { year, week } = isoWeek(today());
@@ -30,6 +30,5 @@ for (let day = 0; day < 7; day++) {
     }
   }
 }
-sql.push("INSERT INTO applications (name, address, postcode, city, email, member_type) VALUES ('Ida Jensen', 'Skolevej 4', '7500', 'Holstebro', 'ida@example.dk', 'Junior');");
 fs.writeFileSync('demo.sql', sql.join('\n') + '\n');
 console.log('Skrev demo.sql. Kør: npx wrangler d1 execute DB --local --file demo.sql');

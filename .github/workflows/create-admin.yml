@@ -1,0 +1,36 @@
+name: Opret administrator
+
+# Run by hand (Actions > Opret administrator > Run workflow) to create an administrator, or give an existing
+# member admin rights and a new PIN. The PIN is a workflow input, so it is never stored in the repository.
+on:
+  workflow_dispatch:
+    inputs:
+      member_no:
+        description: Medlemsnummer
+        required: true
+      pin:
+        description: Pinkode (4-8 cifre)
+        required: true
+      name:
+        description: Navn
+        required: false
+        default: Administrator
+
+jobs:
+  create-admin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Reads the inputs from the event file, so the PIN is not printed in the log.
+      - run: node scripts/create-admin.js
+      - name: Write administrator to the database
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: d1 execute DB --remote --file create-admin.sql

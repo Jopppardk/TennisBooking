@@ -18,7 +18,7 @@ migrations_dir = "migrations"
 enabled = true
 
 # Secrets (set with `npx wrangler secret put NAME`, never committed):
-#   ADMIN_PIN        PIN for the first administrator (member no. 1); default 1234
+#   ADMIN_PIN        optional: creates an administrator (member ADMIN_MEMBER_NO, default 1) when none exists
 #   RESEND_API_KEY   e-mail via resend.com
 #   MAIL_FROM        sender, e.g. "Tennisklubben <booking@dinklub.dk>" (a domain verified in Resend)
 #   CPSMS_USERNAME   SMS via cpsms.dk

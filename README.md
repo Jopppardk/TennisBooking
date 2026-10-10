@@ -1,7 +1,8 @@
 # Tennis court booking
 
-Booking site for a tennis club: members, court bookings, sign-ups and administration. It rebuilds the old PHP site
-(Tvis IF Tennis / ambabooking.dk) with the same functions. The site itself is in Danish.
+Court booking for a tennis club: members log in with member number and PIN and book courts; administrators manage
+members, courts and times. It rebuilds the booking part of the old PHP site (Tvis IF Tennis / ambabooking.dk), without
+the club pages (sign-up, fees, about, contact). The site itself is in Danish.
 
 **Stack:** [Cloudflare Workers](https://developers.cloudflare.com/workers/) running [Hono](https://hono.dev),
 a [D1](https://developers.cloudflare.com/d1/) (SQLite) database, server-rendered HTML and plain CSS.
@@ -20,12 +21,21 @@ npx wrangler d1 create tennis-booking    # prints a database_id
 Paste the `database_id` into `wrangler.toml`, then:
 
 ```bash
-npx wrangler secret put ADMIN_PIN        # PIN for the first administrator (member no. 1)
 npm run deploy                           # creates the tables and publishes the site
 ```
 
-Wrangler prints the address (`https://tennis-booking.<your-account>.workers.dev`). Log in as member 1 with the PIN
-you chose, and change club name, texts and fees under **Administration > Indstillinger og tekster**.
+Wrangler prints the address (`https://tennis-booking.<your-account>.workers.dev`). Then create the first
+administrator (see below), log in, and set the name and front-page texts under **Administration > Indstillinger og tekster**.
+
+## Create an administrator
+
+In GitHub, open **Actions > Opret administrator > Run workflow** and enter member number, PIN and name. The member is
+created as administrator (or an existing member gets admin rights and the new PIN). The PIN is only a workflow input,
+so it never ends up in the repository or the log. Without GitHub: `node scripts/create-admin.js 42 1234 "Navn"`, then
+`npx wrangler d1 execute DB --remote --file create-admin.sql`, and delete the file.
+
+Alternatively set the Worker secrets `ADMIN_PIN` (and `ADMIN_MEMBER_NO`, default 1): when the database has no
+administrator, the first request creates one with them.
 To use your own domain, add it under the Worker's **Settings > Domains & Routes** in the Cloudflare dashboard.
 
 ## Automatic deploys from GitHub
@@ -84,10 +94,9 @@ Delete both generated files afterwards, since they contain personal data. Old bo
 | Max bookings per member (1, 2, 3, 5, 10, 999) | Same, and enforced (it was switched off in the old code). Bookings for today don't count. |
 | Edit own details, change PIN | Same. |
 | Forgotten PIN by member no., e-mail or mobile | Sends a new PIN by e-mail/SMS. |
-| "Bliv medlem" sign-up with fees | Same. Fees are editable. |
 | Admin: members list, create, edit, deactivate, activate, delete, print list | Same, plus search and CSV export. |
-| Admin: pending sign-ups, create member from sign-up | Same; the form is pre-filled. |
-| Activity log, info pages (Om klubben, Kontakt, Turnering, Sponsorer), guide | Same; texts are edited in Administration. |
+| Activity log, booking guide | Same. Front-page texts are edited in Administration. |
+| Sign-up, fees, Om klubben, Kontakt, Turnering, Sponsorer | Left out: this is only the booking site. |
 
 ## Layout
 
@@ -100,6 +109,6 @@ src/db.js             query helpers, settings, log
 src/session.js        login sessions, CSRF protection
 migrations/           D1 schema and default data
 public/               CSS, small JS, icon (served as static assets)
-scripts/              import-members, seed-demo
+scripts/              create-admin, import-members, seed-demo
 test/                 end-to-end tests (node:test, D1 stand-in in test-support/)
 ```
